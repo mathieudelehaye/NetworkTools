@@ -1,32 +1,73 @@
-# Prerequisites
-*.d
-
-# Compiled Object files
-*.slo
-*.lo
-*.o
+# Build artifacts
 *.obj
-
-# Precompiled Headers
+*.o
+*.lo
+*.loT
 *.gch
 *.pch
-
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
-
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
-
-# Executables
 *.exe
 *.out
 *.app
+*.i
+*.ii
+*.dll
+*.lib
+*.a
+*.la
+*.so
+*.dylib
+
+.vs/
+
+# Visual Studio files
+.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.VC.db
+*.VC.opendb
+*.ncb
+*.log
+*.tlog
+*.ipch
+*.aps
+*.ilk
+*.pdb
+*.idb
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+build/
+
+# Qt-related
+moc_*.cpp
+qrc_*.cpp
+ui_*.h
+
+# Code::Blocks
+*.depend
+*.layout
+
+# CLion / JetBrains IDEs
+.idea/
+cmake-build-*/
+
+# Backup and temp files
+*~
+*.bak
+*.tmp
+*.swp
+*.DS_Store
+Thumbs.db
+
+# Output folders
+bin/
+obj/
+debug/
+release/
+x64/
+x86/

@@ -15,9 +15,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\library.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="common\NetworkManager.h">
       <Filter>Header Files</Filter>
     </ClInclude>

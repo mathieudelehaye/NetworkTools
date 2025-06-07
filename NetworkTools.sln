@@ -3,8 +3,6 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.14.36127.28
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "NetworkTools", "NetworkTools\NetworkTools.vcxproj", "{F7AE86CC-5CDB-46D0-86EF-678E01BC51CC}"
-EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Server", "Server\Server.vcxproj", "{37C4229F-87ED-4393-9C9D-5A025D7B86DB}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Client", "Client\Client.vcxproj", "{67B681F0-D846-4AB9-B3C0-73EC4C1EE10B}"
@@ -17,14 +15,6 @@ Global
 		Release|x86 = Release|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{F7AE86CC-5CDB-46D0-86EF-678E01BC51CC}.Debug|x64.ActiveCfg = Debug|x64
-		{F7AE86CC-5CDB-46D0-86EF-678E01BC51CC}.Debug|x64.Build.0 = Debug|x64
-		{F7AE86CC-5CDB-46D0-86EF-678E01BC51CC}.Debug|x86.ActiveCfg = Debug|Win32
-		{F7AE86CC-5CDB-46D0-86EF-678E01BC51CC}.Debug|x86.Build.0 = Debug|Win32
-		{F7AE86CC-5CDB-46D0-86EF-678E01BC51CC}.Release|x64.ActiveCfg = Release|x64
-		{F7AE86CC-5CDB-46D0-86EF-678E01BC51CC}.Release|x64.Build.0 = Release|x64
-		{F7AE86CC-5CDB-46D0-86EF-678E01BC51CC}.Release|x86.ActiveCfg = Release|Win32
-		{F7AE86CC-5CDB-46D0-86EF-678E01BC51CC}.Release|x86.Build.0 = Release|Win32
 		{37C4229F-87ED-4393-9C9D-5A025D7B86DB}.Debug|x64.ActiveCfg = Debug|x64
 		{37C4229F-87ED-4393-9C9D-5A025D7B86DB}.Debug|x64.Build.0 = Debug|x64
 		{37C4229F-87ED-4393-9C9D-5A025D7B86DB}.Debug|x86.ActiveCfg = Debug|Win32

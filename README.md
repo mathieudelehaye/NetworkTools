@@ -1,6 +1,6 @@
 # NetworkTools
 
-<p align="center">
+<p align="left">
   <img src="Screenshots/Screenshot-01.png" alt="NetworkTools Screenshot" width="66%" />
 </p>
 

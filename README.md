@@ -1,5 +1,7 @@
 # NetworkTools
 
+![NetworkTools Screenshot](Screenshots/Screenshot-01.png)
+
 **NetworkTools** is a collection of utilities and examples for implementing network protocols from scratch using modern C++ (C++17/20). Built for development in **Visual Studio on Windows**, with POSIX principles in mind for future portability.
 
 ## Features
@@ -7,7 +9,7 @@
 - TCP and UDP socket communication
 - Packet encoding/decoding utilities
 - Byte-level parsing and serialization
-- Modern C++ design patterns (RAII, smart pointers, constexpr)
+- Modern C++ design patterns (RAII, smart pointers, `constexpr`)
 - Example apps: echo server/client, basic protocol parser
 
 ## Requirements

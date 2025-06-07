@@ -6,17 +6,21 @@
 
 ## Features
 
-- TCP and UDP socket communication
+- TCP socket communication
+
+## TODO Features
+
+The following features are planned but not yet implemented:
+
+- UDP socket communication
 - Packet encoding/decoding utilities
 - Byte-level parsing and serialization
-- Modern C++ design patterns (RAII, smart pointers, `constexpr`)
 - Example apps: echo server/client, basic protocol parser
 
 ## Requirements
 
 - Windows 10/11
-- Visual Studio 2019 or later
-- C++17 or C++20 standard enabled
+- Visual Studio 2022 or later
 - Winsock2 (included in Windows SDK)
 
 ## Getting Started

@@ -1,6 +1,8 @@
 # NetworkTools
 
-![NetworkTools Screenshot](Screenshots/Screenshot-01.png)
+<p align="center">
+  <img src="Screenshots/Screenshot-01.png" alt="NetworkTools Screenshot" width="66%" />
+</p>
 
 **NetworkTools** is a collection of utilities and examples for implementing network protocols from scratch using modern C++ (C++17/20). Built for development in **Visual Studio on Windows**, with POSIX principles in mind for future portability.
 

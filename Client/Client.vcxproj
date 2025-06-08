@@ -24,10 +24,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="common\main.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="common\main_opcv.cpp" />
     <ClCompile Include="common\tcp_client.cpp" />
     <ClCompile Include="common\udp_client.cpp" />
   </ItemGroup>

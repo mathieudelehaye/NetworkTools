@@ -9,12 +9,12 @@
 ## Features
 
 - TCP socket communication
+- UDP socket communication
 
 ## TODO Features
 
 The following features are planned but not yet implemented:
 
-- UDP socket communication
 - Packet encoding/decoding utilities
 - Byte-level parsing and serialization
 - Example apps: echo server/client, basic protocol parser

@@ -17,7 +17,7 @@ The following features are planned but not yet implemented:
 
 - Packet encoding/decoding utilities
 - Byte-level parsing and serialization
-- Example apps: echo server/client, basic protocol parser
+- Example apps: basic protocol parser
 
 ## Requirements
 

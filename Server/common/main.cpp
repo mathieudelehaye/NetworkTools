@@ -6,8 +6,8 @@
 #ifdef _WIN32
 #include <conio.h>
 #endif
-#include "../include/tcp_server.h"
-#include "../include/udp_server.h"
+#include "tcp_server.h"
+#include "udp_server.h"
 
 enum class Protocol {
     TCP,

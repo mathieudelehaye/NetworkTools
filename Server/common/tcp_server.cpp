@@ -1,4 +1,4 @@
-#include "../include/tcp_server.h"
+#include "tcp_server.h"
 #include <iostream>
 
 #ifdef _WIN32

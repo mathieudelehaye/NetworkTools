@@ -17,6 +17,8 @@
 *.so
 *.dylib
 
+project_structure*
+
 .vs/
 
 # Visual Studio files

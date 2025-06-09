@@ -5,7 +5,7 @@
   <img src="Screenshots/Screenshot-02.png" alt="NetworkTools Screenshot 2" width="40%" />
 </p>
 
-**NetworkTools** is a collection of utilities and examples for implementing network protocols and real-time video streaming using C++ (C++17/20) and OpenCV. Built for development in Visual Studio on Windows, with POSIX principles in mind for future portability.
+**NetworkTools** is a collection of utilities and examples for implementing network protocols and real-time video streaming using C++ and OpenCV. Built for development in **Visual Studio on Windows**, with POSIX principles in mind for future portability.
 
 ## Features
 

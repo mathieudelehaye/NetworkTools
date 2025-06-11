@@ -21,30 +21,33 @@ enum class Demo {
     TCP_TEXT = 1,
     UDP_TEXT = 2,
     UDP_VIDEO = 3,
-    EXIT = 4
+    UDP_VIDEO_PREVIEW = 4,
+    EXIT = 5
 };
 
 Demo show_menu() {
     while (true) {
-        std::cout << "\nSelect Demo:\n";
+        std::cout << "\nServer Menu:\n";
         std::cout << "1. TCP Text Message\n";
         std::cout << "2. UDP Text Message\n";
         std::cout << "3. UDP Video Stream\n";
-        std::cout << "4. Exit\n";
-        std::cout << "Choice (1-4): ";
-        
-        char choice;
+        std::cout << "4. UDP Video Stream with Preview\n";
+        std::cout << "5. Exit\n";
+        std::cout << "Enter your choice: ";
+
+        int choice;
         std::cin >> choice;
-        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-        
+
         switch (choice) {
-            case '1':
+            case 1:
                 return Demo::TCP_TEXT;
-            case '2':
+            case 2:
                 return Demo::UDP_TEXT;
-            case '3':
+            case 3:
                 return Demo::UDP_VIDEO;
-            case '4':
+            case 4:
+                return Demo::UDP_VIDEO_PREVIEW;
+            case 5:
                 return Demo::EXIT;
             default:
                 std::cout << "Invalid choice. Please try again.\n";
@@ -125,7 +128,7 @@ bool run_udp_text_demo(uint16_t port) {
     return true;
 }
 
-bool run_udp_video_demo() {
+bool run_udp_video_demo(bool preview) {
     // Init Winsock
     WSADATA wsa;
     if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
@@ -168,18 +171,27 @@ bool run_udp_video_demo() {
 
     std::cout << "Streaming video. Press ESC to stop.\n";
 
+    if (preview) {
+        cv::namedWindow("Server Preview", cv::WINDOW_AUTOSIZE | cv::WINDOW_GUI_NORMAL);
+    }
+
     std::vector<uchar> buffer;
     std::vector<int> params = { 
         cv::IMWRITE_JPEG_QUALITY, 60,      // Lower quality for smaller size
         cv::IMWRITE_JPEG_OPTIMIZE, 1       // Enable optimization
     };
 
-    cv::Mat frame, resized_frame;
+    cv::Mat frame, display_frame;
     bool running = true;
 
     // Set socket buffer size
     int sndbuff = 65536;
     setsockopt(sock, SOL_SOCKET, SO_SNDBUF, (char*)&sndbuff, sizeof(sndbuff));
+
+    // FPS calculation variables
+    const int FPS_WINDOW_SIZE = 30;
+    std::queue<std::chrono::steady_clock::time_point> frame_times;
+    double current_fps = 0.0;
 
     while (running) {
         auto start = std::chrono::steady_clock::now();
@@ -188,6 +200,30 @@ bool run_udp_video_demo() {
         if (frame.empty()) {
             std::cerr << "Failed to capture frame\n";
             continue;
+        }
+
+        // Calculate FPS
+        frame_times.push(start);
+        while (frame_times.size() > FPS_WINDOW_SIZE) {
+            frame_times.pop();
+        }
+
+        if (frame_times.size() >= 2) {
+            auto time_diff = std::chrono::duration_cast<std::chrono::milliseconds>(
+                frame_times.back() - frame_times.front()).count();
+            current_fps = (frame_times.size() - 1) * 1000.0 / time_diff;
+        }
+
+        // If preview is enabled, create a copy for display
+        if (preview) {
+            display_frame = frame.clone();
+            // Add resolution and FPS overlay
+            std::stringstream info;
+            info << "Resolution: " << frame.cols << "x" << frame.rows 
+                 << " | FPS: " << std::fixed << std::setprecision(1) << current_fps;
+            cv::putText(display_frame, info.str(), cv::Point(10, 30),
+                cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 255, 0), 2);
+            cv::imshow("Server Preview", display_frame);
         }
 
         // Compress frame to JPEG
@@ -203,8 +239,11 @@ bool run_udp_video_demo() {
         sendto(sock, reinterpret_cast<char*>(buffer.data()), buffer.size(), 0,
             reinterpret_cast<sockaddr*>(&clientAddr), sizeof(clientAddr));
 
-        // Check for ESC key without displaying the frame
-        if (_kbhit()) {
+        // Check for ESC key
+        char c = preview ? cv::waitKey(1) : 0;
+        if (preview && c == 27) {
+            running = false;
+        } else if (!preview && _kbhit()) {
             if (_getch() == 27) // ESC key
                 running = false;
         }
@@ -219,16 +258,19 @@ bool run_udp_video_demo() {
         }
     }
 
+    if (preview) {
+        cv::destroyWindow("Server Preview");
+    }
     cap.release();
     closesocket(sock);
     WSACleanup();
     return true;
 }
 
-int main() {
+int main(int argc, char* argv[]) {
     const uint16_t SERVER_PORT = 8080;
 
-    // Silence INFO?level plugin?loader messages
+    // Silence INFO-level plugin-loader messages
     cv::utils::logging::setLogLevel(cv::utils::logging::LOG_LEVEL_WARNING);
 
     while (true) {
@@ -245,7 +287,11 @@ int main() {
                 break;
 
             case Demo::UDP_VIDEO:
-                success = run_udp_video_demo();
+                success = run_udp_video_demo(false);
+                break;
+
+            case Demo::UDP_VIDEO_PREVIEW:
+                success = run_udp_video_demo(true);
                 break;
 
             case Demo::EXIT:

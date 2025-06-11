@@ -1,6 +1,10 @@
 #include <iostream>
 #include <string>
 #include <limits>
+#include <queue>
+#include <chrono>
+#include <sstream>
+#include <iomanip>
 #include <opencv2/opencv.hpp>
 // Fix for Windows max macro conflict
 #define NOMINMAX
@@ -147,15 +151,51 @@ bool run_udp_video_demo(const char* server_ip) {
     sockaddr_in senderAddr;
     int senderLen = sizeof(senderAddr);
 
+    // FPS calculation variables
+    const int FPS_WINDOW_SIZE = 30; // Calculate FPS over 30 frames
+    std::queue<std::chrono::steady_clock::time_point> frame_times;
+    int total_frames = 0;
+    double current_fps = 0.0;
+    auto last_fps_print = std::chrono::steady_clock::now();
+    const auto FPS_PRINT_INTERVAL = std::chrono::seconds(1); // Update FPS display every second
+
     while (true) {
         int bytesReceived = recvfrom(sock, buffer, BUFFER_SIZE, 0,
             reinterpret_cast<sockaddr*>(&senderAddr), &senderLen);
 
         if (bytesReceived > 0) {
+            // Record frame arrival time for FPS calculation
+            auto current_time = std::chrono::steady_clock::now();
+            frame_times.push(current_time);
+            total_frames++;
+
+            // Maintain our sliding window of frame times
+            while (frame_times.size() > FPS_WINDOW_SIZE) {
+                frame_times.pop();
+            }
+
+            // Calculate FPS if we have enough frames
+            if (frame_times.size() >= 2) {
+                auto time_diff = std::chrono::duration_cast<std::chrono::milliseconds>(
+                    frame_times.back() - frame_times.front()).count();
+                current_fps = (frame_times.size() - 1) * 1000.0 / time_diff;
+            }
+
+            // Decode and display the frame
             std::vector<uchar> data(buffer, buffer + bytesReceived);
             cv::Mat img = cv::imdecode(data, cv::IMREAD_COLOR);
 
             if (!img.empty()) {
+                // Create info text with resolution and FPS
+                std::stringstream info;
+                info << "Resolution: " << img.cols << "x" << img.rows 
+                     << " | FPS: " << std::fixed << std::setprecision(1) << current_fps;
+
+                // Draw the info text on the frame
+                cv::putText(img, info.str(), cv::Point(10, 30),
+                    cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(0, 255, 0), 2);
+
+                // Display the frame
                 cv::imshow("Received Video Stream", img);
             }
         }

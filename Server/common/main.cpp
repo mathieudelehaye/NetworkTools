@@ -158,6 +158,29 @@ bool run_udp_video_demo(bool preview) {
         return false;
     }
 
+    // Print client address info
+    char client_ip_str[INET_ADDRSTRLEN];
+    inet_ntop(AF_INET, &clientAddr.sin_addr, client_ip_str, INET_ADDRSTRLEN);
+    std::cout << "Sending video to client at " << client_ip_str << ":" << ntohs(clientAddr.sin_port) << std::endl;
+
+    // Enable broadcast (in case client is on broadcast address)
+    int broadcast = 1;
+    if (setsockopt(sock, SOL_SOCKET, SO_BROADCAST, (char*)&broadcast, sizeof(broadcast)) < 0) {
+        std::cerr << "Failed to set broadcast option\n";
+    }
+
+    // Increase send buffer size
+    int sendbuf = 262144; // 256KB buffer
+    if (setsockopt(sock, SOL_SOCKET, SO_SNDBUF, (char*)&sendbuf, sizeof(sendbuf)) < 0) {
+        std::cerr << "Failed to set send buffer size\n";
+    }
+
+    // Set non-blocking mode
+    u_long mode = 1;
+    if (ioctlsocket(sock, FIONBIO, &mode) == SOCKET_ERROR) {
+        std::cerr << "Failed to set non-blocking mode\n";
+    }
+
     // Open webcam with DirectShow backend
     cv::VideoCapture cap(0, cv::CAP_DSHOW);
     if (!cap.isOpened()) {
@@ -188,25 +211,37 @@ bool run_udp_video_demo(bool preview) {
     }
 
     std::vector<uchar> buffer;
-    std::vector<int> params = { 
-        cv::IMWRITE_JPEG_QUALITY, 80,      // Higher quality for better image
-        cv::IMWRITE_JPEG_OPTIMIZE, 1       // Enable optimization
-    };
+    std::vector<int> params;
+    params.push_back(cv::IMWRITE_JPEG_QUALITY);
+    params.push_back(85);
+    params.push_back(cv::IMWRITE_JPEG_OPTIMIZE);
+    params.push_back(1);
 
     cv::Mat frame, display_frame;
     bool running = true;
 
-    // Increase socket buffer size for higher resolution
-    int sndbuff = 262144; // 256KB buffer
-    setsockopt(sock, SOL_SOCKET, SO_SNDBUF, (char*)&sndbuff, sizeof(sndbuff));
-
-    // FPS calculation variables
+    // FPS and rate control variables
+    const int TARGET_FPS = 30;
     const int FPS_WINDOW_SIZE = 30;
+    const double FRAME_TIME = 1000.0 / TARGET_FPS;
+    const size_t MAX_CHUNK_SIZE = 58000; // Reduced to avoid fragmentation
+    const size_t MAX_PENDING_FRAMES = 2;
     std::queue<std::chrono::steady_clock::time_point> frame_times;
     double current_fps = 0.0;
 
+    // Network congestion control
+    size_t consecutive_errors = 0;
+    const size_t ERROR_THRESHOLD = 5;
+    int current_quality = 85;
+    
+    // Debug variables for network statistics
+    size_t total_bytes_sent = 0;
+    size_t total_chunks_sent = 0;
+    size_t dropped_frames = 0;
+    auto last_stats = std::chrono::steady_clock::now();
+
     while (running) {
-        auto start = std::chrono::steady_clock::now();
+        auto frame_start = std::chrono::steady_clock::now();
 
         cap >> frame;
         if (frame.empty()) {
@@ -215,7 +250,7 @@ bool run_udp_video_demo(bool preview) {
         }
 
         // Calculate FPS
-        frame_times.push(start);
+        frame_times.push(frame_start);
         while (frame_times.size() > FPS_WINDOW_SIZE) {
             frame_times.pop();
         }
@@ -233,44 +268,128 @@ bool run_udp_video_demo(bool preview) {
             std::stringstream info;
             info << "Resolution: " << frame.cols << "x" << frame.rows 
                  << " | FPS: " << std::fixed << std::setprecision(1) << current_fps
-                 << " | Target: " << actualFPS;
+                 << " | Target: " << actualFPS
+                 << " | Quality: " << current_quality;
             cv::putText(display_frame, info.str(), cv::Point(10, 30),
                 cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 255, 0), 2);
             cv::imshow("Server Preview", display_frame);
         }
 
-        // Compress frame to JPEG
+        // Compress frame to JPEG with dynamic quality
+        params[1] = current_quality;
         cv::imencode(".jpg", frame, buffer, params);
 
-        // If frame is too large, split into chunks
-        const size_t MAX_CHUNK_SIZE = 60000; // Leave room for headers
+        // Split frame into chunks with headers
+        const size_t HEADER_SIZE = 12; // 4 bytes frame ID, 4 bytes chunk ID, 4 bytes total_chunks
         size_t total_size = buffer.size();
-        size_t offset = 0;
+        size_t num_chunks = (total_size + MAX_CHUNK_SIZE - 1) / MAX_CHUNK_SIZE;
+        static uint32_t frame_id = 0;
 
-        while (offset < total_size) {
+        // Debug output
+        static auto last_debug = std::chrono::steady_clock::now();
+        auto now = std::chrono::steady_clock::now();
+        if (std::chrono::duration_cast<std::chrono::seconds>(now - last_debug).count() >= 1) {
+            std::cout << "Server: Frame " << frame_id << " size: " << total_size 
+                      << " bytes, chunks: " << num_chunks 
+                      << ", quality: " << current_quality << std::endl;
+            last_debug = now;
+        }
+
+        // Print network statistics every second
+        if (std::chrono::duration_cast<std::chrono::seconds>(now - last_stats).count() >= 1) {
+            std::cout << "Network stats - Sent: " << total_bytes_sent / 1024 << " KB, "
+                     << "Chunks: " << total_chunks_sent << ", "
+                     << "Average chunk size: " << (total_chunks_sent ? total_bytes_sent / total_chunks_sent : 0)
+                     << " bytes, Dropped frames: " << dropped_frames << std::endl;
+            total_bytes_sent = 0;
+            total_chunks_sent = 0;
+            dropped_frames = 0;
+            last_stats = now;
+        }
+
+        // Prepare header buffer
+        std::vector<char> chunk_buffer(MAX_CHUNK_SIZE + HEADER_SIZE);
+        
+        // Send all chunks for this frame
+        size_t offset = 0;
+        bool frame_sent = true;
+        for (size_t chunk_id = 0; chunk_id < num_chunks; chunk_id++) {
             size_t chunk_size = std::min(MAX_CHUNK_SIZE, total_size - offset);
-            sendto(sock, reinterpret_cast<char*>(buffer.data() + offset), static_cast<int>(chunk_size), 0,
-                reinterpret_cast<sockaddr*>(&clientAddr), sizeof(clientAddr));
+            
+            // Write header (frame_id, chunk_id, total_chunks)
+            uint32_t frame_id_net = htonl(frame_id);
+            uint32_t chunk_id_net = htonl(static_cast<uint32_t>(chunk_id));
+            uint32_t total_chunks_net = htonl(static_cast<uint32_t>(num_chunks));
+            memcpy(chunk_buffer.data(), &frame_id_net, 4);
+            memcpy(chunk_buffer.data() + 4, &chunk_id_net, 4);
+            memcpy(chunk_buffer.data() + 8, &total_chunks_net, 4);
+            
+            // Copy chunk data
+            memcpy(chunk_buffer.data() + HEADER_SIZE, buffer.data() + offset, chunk_size);
+            
+            // Send chunk with timeout using select
+            fd_set writefds;
+            FD_ZERO(&writefds);
+            FD_SET(sock, &writefds);
+            
+            timeval tv;
+            tv.tv_sec = 0;
+            tv.tv_usec = 5000; // 5ms timeout
+            
+            if (select(0, nullptr, &writefds, nullptr, &tv) > 0) {
+                int sent = sendto(sock, chunk_buffer.data(), static_cast<int>(chunk_size + HEADER_SIZE), 0,
+                    reinterpret_cast<sockaddr*>(&clientAddr), sizeof(clientAddr));
+                    
+                if (sent == SOCKET_ERROR) {
+                    int error = WSAGetLastError();
+                    if (error != WSAEWOULDBLOCK) {
+                        consecutive_errors++;
+                        frame_sent = false;
+                        if (consecutive_errors >= ERROR_THRESHOLD && current_quality > 60) {
+                            current_quality = std::max(60, static_cast<int>(current_quality - 5));
+                            consecutive_errors = 0;
+                        }
+                    }
+                } else {
+                    consecutive_errors = 0;
+                    total_bytes_sent += sent;
+                    total_chunks_sent++;
+                }
+            } else {
+                frame_sent = false;
+                break;
+            }
+            
             offset += chunk_size;
         }
+        
+        if (!frame_sent) {
+            dropped_frames++;
+        } else if (consecutive_errors == 0 && current_quality < 85) {
+            // Gradually increase quality if network is stable
+            current_quality = std::min(85, static_cast<int>(current_quality + 1));
+        }
+        
+        frame_id++;
 
-        // Check for ESC key
-        char c = preview ? cv::waitKey(1) : 0;
-        if (preview && c == 27) {
-            running = false;
-        } else if (!preview && _kbhit()) {
-            if (_getch() == 27) // ESC key
-                running = false;
+        // Check for ESC key and handle input
+        if (preview) {
+            char c = static_cast<char>(cv::waitKey(1));
+            if (c == 27) running = false;  // ESC key
+        } else if (_kbhit()) {
+            char c = static_cast<char>(_getch());
+            if (c == 27) running = false;  // ESC key
         }
 
-        // Calculate processing time and add minimal delay if needed
-        auto end = std::chrono::steady_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+        // Calculate processing time and add delay if needed
+        auto frame_end = std::chrono::steady_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(frame_end - frame_start).count();
         
-        // Aim for the actual FPS rate
-        double frame_time = 1000.0 / actualFPS;
-        if (duration < frame_time) {
-            Sleep(1); // Minimal sleep to prevent CPU overuse
+        if (duration < FRAME_TIME) {
+            auto sleep_time = static_cast<DWORD>((FRAME_TIME - duration) / 2);
+            if (sleep_time > 0) {
+                Sleep(sleep_time); // Use half the available time for better timing
+            }
         }
     }
 

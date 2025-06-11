@@ -160,14 +160,30 @@ bool run_udp_video_demo() {
         return false;
     }
 
+    // Optimize webcam settings
+    cap.set(cv::CAP_PROP_FRAME_WIDTH, 640);  // Set resolution
+    cap.set(cv::CAP_PROP_FRAME_HEIGHT, 480);
+    cap.set(cv::CAP_PROP_FPS, 30);          // Request 30 FPS
+    cap.set(cv::CAP_PROP_FOURCC, cv::VideoWriter::fourcc('M', 'J', 'P', 'G')); // Use MJPG format if available
+
     std::cout << "Streaming video. Press ESC to stop.\n";
 
     std::vector<uchar> buffer;
-    std::vector<int> params = { cv::IMWRITE_JPEG_QUALITY, 70 };
+    std::vector<int> params = { 
+        cv::IMWRITE_JPEG_QUALITY, 60,      // Lower quality for smaller size
+        cv::IMWRITE_JPEG_OPTIMIZE, 1       // Enable optimization
+    };
 
-    cv::Mat frame;
+    cv::Mat frame, resized_frame;
     bool running = true;
+
+    // Set socket buffer size
+    int sndbuff = 65536;
+    setsockopt(sock, SOL_SOCKET, SO_SNDBUF, (char*)&sndbuff, sizeof(sndbuff));
+
     while (running) {
+        auto start = std::chrono::steady_clock::now();
+
         cap >> frame;
         if (frame.empty()) {
             std::cerr << "Failed to capture frame\n";
@@ -178,12 +194,13 @@ bool run_udp_video_demo() {
         cv::imencode(".jpg", frame, buffer, params);
 
         if (buffer.size() > 65000) {
-            std::cerr << "Frame too large for UDP. Skipping.\n";
+            // If frame is too large, reduce quality
+            params[1] = std::max(20, params[1] - 5);
             continue;
         }
 
         // Send JPEG data
-        sendto(sock, reinterpret_cast<char*>(buffer.data()), static_cast<int>(buffer.size()), 0,
+        sendto(sock, reinterpret_cast<char*>(buffer.data()), buffer.size(), 0,
             reinterpret_cast<sockaddr*>(&clientAddr), sizeof(clientAddr));
 
         // Check for ESC key without displaying the frame
@@ -192,8 +209,14 @@ bool run_udp_video_demo() {
                 running = false;
         }
 
-        // Small delay to control frame rate
-        Sleep(30); // ~33 FPS
+        // Calculate processing time and adjust delay
+        auto end = std::chrono::steady_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+        
+        // Aim for ~33ms per frame (30 FPS)
+        if (duration < 33) {
+            Sleep(33 - duration);
+        }
     }
 
     cap.release();

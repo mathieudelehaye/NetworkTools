@@ -145,6 +145,14 @@ bool run_udp_video_demo(const char* server_ip) {
         return false;
     }
 
+    // Increase receive buffer size
+    int rcvbuf = 65536;
+    setsockopt(sock, SOL_SOCKET, SO_RCVBUF, (char*)&rcvbuf, sizeof(rcvbuf));
+
+    // Set socket to non-blocking mode
+    u_long mode = 1;
+    ioctlsocket(sock, FIONBIO, &mode);
+
     std::cout << "Receiving video stream. Press ESC to stop.\n";
 
     char buffer[BUFFER_SIZE];
@@ -152,23 +160,25 @@ bool run_udp_video_demo(const char* server_ip) {
     int senderLen = sizeof(senderAddr);
 
     // FPS calculation variables
-    const int FPS_WINDOW_SIZE = 30; // Calculate FPS over 30 frames
+    const int FPS_WINDOW_SIZE = 30;
     std::queue<std::chrono::steady_clock::time_point> frame_times;
-    int total_frames = 0;
     double current_fps = 0.0;
-    auto last_fps_print = std::chrono::steady_clock::now();
-    const auto FPS_PRINT_INTERVAL = std::chrono::seconds(1); // Update FPS display every second
 
-    while (true) {
+    // Create window with OpenCV high GUI
+    cv::namedWindow("Received Video Stream", cv::WINDOW_AUTOSIZE | cv::WINDOW_GUI_NORMAL);
+
+    bool running = true;
+    while (running) {
+        // Record frame start time
+        auto frame_start = std::chrono::steady_clock::now();
+
         int bytesReceived = recvfrom(sock, buffer, BUFFER_SIZE, 0,
             reinterpret_cast<sockaddr*>(&senderAddr), &senderLen);
 
         if (bytesReceived > 0) {
             // Record frame arrival time for FPS calculation
-            auto current_time = std::chrono::steady_clock::now();
-            frame_times.push(current_time);
-            total_frames++;
-
+            frame_times.push(frame_start);
+            
             // Maintain our sliding window of frame times
             while (frame_times.size() > FPS_WINDOW_SIZE) {
                 frame_times.pop();
@@ -182,25 +192,43 @@ bool run_udp_video_demo(const char* server_ip) {
             }
 
             // Decode and display the frame
-            std::vector<uchar> data(buffer, buffer + bytesReceived);
-            cv::Mat img = cv::imdecode(data, cv::IMREAD_COLOR);
+            try {
+                std::vector<uchar> data(buffer, buffer + bytesReceived);
+                cv::Mat img = cv::imdecode(data, cv::IMREAD_COLOR);
 
-            if (!img.empty()) {
-                // Create info text with resolution and FPS
-                std::stringstream info;
-                info << "Resolution: " << img.cols << "x" << img.rows 
-                     << " | FPS: " << std::fixed << std::setprecision(1) << current_fps;
+                if (!img.empty()) {
+                    // Create info text with resolution and FPS
+                    std::stringstream info;
+                    info << "Resolution: " << img.cols << "x" << img.rows 
+                         << " | FPS: " << std::fixed << std::setprecision(1) << current_fps;
 
-                // Draw the info text on the frame
-                cv::putText(img, info.str(), cv::Point(10, 30),
-                    cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(0, 255, 0), 2);
+                    // Draw the info text on the frame
+                    cv::putText(img, info.str(), cv::Point(10, 30),
+                        cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 255, 0), 2);
 
-                // Display the frame
-                cv::imshow("Received Video Stream", img);
+                    // Display the frame
+                    cv::imshow("Received Video Stream", img);
+                }
+            }
+            catch (const cv::Exception& e) {
+                std::cerr << "OpenCV error: " << e.what() << std::endl;
+                continue;
             }
         }
+        else if (WSAGetLastError() != WSAEWOULDBLOCK) {
+            std::cerr << "recvfrom error: " << WSAGetLastError() << std::endl;
+        }
 
-        if (cv::waitKey(1) == 27) break; // ESC to quit
+        // Process window events and check for ESC key
+        char c = cv::waitKey(1);
+        if (c == 27) running = false;  // ESC key
+
+        // Calculate frame processing time and add small delay if needed
+        auto frame_end = std::chrono::steady_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(frame_end - frame_start).count();
+        if (duration < 33) {  // Aim for ~30 FPS
+            Sleep(1);  // Just a minimal sleep to prevent CPU overuse
+        }
     }
 
     cv::destroyAllWindows();

@@ -214,6 +214,9 @@ int main(int argc, char* argv[]) {
     const char* SERVER_IP = (argc > 1 ? argv[1] : "127.0.0.1");
     const uint16_t SERVER_PORT = 8080;
 
+    // Silence INFO?level plugin?loader messages
+    cv::utils::logging::setLogLevel(cv::utils::logging::LOG_LEVEL_WARNING);
+
     while (true) {
         Demo choice = show_menu();
         bool success = false;

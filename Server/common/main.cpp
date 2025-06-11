@@ -183,7 +183,7 @@ bool run_udp_video_demo() {
         }
 
         // Send JPEG data
-        sendto(sock, reinterpret_cast<char*>(buffer.data()), buffer.size(), 0,
+        sendto(sock, reinterpret_cast<char*>(buffer.data()), static_cast<int>(buffer.size()), 0,
             reinterpret_cast<sockaddr*>(&clientAddr), sizeof(clientAddr));
 
         // Check for ESC key without displaying the frame
@@ -204,6 +204,9 @@ bool run_udp_video_demo() {
 
 int main() {
     const uint16_t SERVER_PORT = 8080;
+
+    // Silence INFO?level plugin?loader messages
+    cv::utils::logging::setLogLevel(cv::utils::logging::LOG_LEVEL_WARNING);
 
     while (true) {
         Demo choice = show_menu();

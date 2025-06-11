@@ -2,6 +2,10 @@
 #include <string>
 #include <limits>
 #include <opencv2/opencv.hpp>
+#include <queue>
+#include <chrono>
+#include <iomanip>
+#include <sstream>
 // Fix for Windows max macro conflict
 #define NOMINMAX
 #ifdef _WIN32
@@ -154,8 +158,8 @@ bool run_udp_video_demo(bool preview) {
         return false;
     }
 
-    // Open webcam
-    cv::VideoCapture cap(0);
+    // Open webcam with DirectShow backend
+    cv::VideoCapture cap(0, cv::CAP_DSHOW);
     if (!cap.isOpened()) {
         std::cerr << "Could not open webcam.\n";
         closesocket(sock);
@@ -163,13 +167,21 @@ bool run_udp_video_demo(bool preview) {
         return false;
     }
 
-    // Optimize webcam settings
-    cap.set(cv::CAP_PROP_FRAME_WIDTH, 640);  // Set resolution
-    cap.set(cv::CAP_PROP_FRAME_HEIGHT, 480);
-    cap.set(cv::CAP_PROP_FPS, 30);          // Request 30 FPS
-    cap.set(cv::CAP_PROP_FOURCC, cv::VideoWriter::fourcc('M', 'J', 'P', 'G')); // Use MJPG format if available
+    // Configure camera for high performance
+    cap.set(cv::CAP_PROP_FOURCC, cv::VideoWriter::fourcc('M', 'J', 'P', 'G'));
+    cap.set(cv::CAP_PROP_FRAME_WIDTH, 1920);
+    cap.set(cv::CAP_PROP_FRAME_HEIGHT, 1080);
+    cap.set(cv::CAP_PROP_FPS, 30);
 
-    std::cout << "Streaming video. Press ESC to stop.\n";
+    // Read back actual camera settings
+    double actualWidth = cap.get(cv::CAP_PROP_FRAME_WIDTH);
+    double actualHeight = cap.get(cv::CAP_PROP_FRAME_HEIGHT);
+    double actualFPS = cap.get(cv::CAP_PROP_FPS);
+
+    std::cout << "Camera initialized with settings:\n"
+              << "Resolution: " << actualWidth << "x" << actualHeight << "\n"
+              << "FPS: " << actualFPS << "\n"
+              << "Streaming video. Press ESC to stop.\n";
 
     if (preview) {
         cv::namedWindow("Server Preview", cv::WINDOW_AUTOSIZE | cv::WINDOW_GUI_NORMAL);
@@ -177,15 +189,15 @@ bool run_udp_video_demo(bool preview) {
 
     std::vector<uchar> buffer;
     std::vector<int> params = { 
-        cv::IMWRITE_JPEG_QUALITY, 60,      // Lower quality for smaller size
+        cv::IMWRITE_JPEG_QUALITY, 80,      // Higher quality for better image
         cv::IMWRITE_JPEG_OPTIMIZE, 1       // Enable optimization
     };
 
     cv::Mat frame, display_frame;
     bool running = true;
 
-    // Set socket buffer size
-    int sndbuff = 65536;
+    // Increase socket buffer size for higher resolution
+    int sndbuff = 262144; // 256KB buffer
     setsockopt(sock, SOL_SOCKET, SO_SNDBUF, (char*)&sndbuff, sizeof(sndbuff));
 
     // FPS calculation variables
@@ -220,7 +232,8 @@ bool run_udp_video_demo(bool preview) {
             // Add resolution and FPS overlay
             std::stringstream info;
             info << "Resolution: " << frame.cols << "x" << frame.rows 
-                 << " | FPS: " << std::fixed << std::setprecision(1) << current_fps;
+                 << " | FPS: " << std::fixed << std::setprecision(1) << current_fps
+                 << " | Target: " << actualFPS;
             cv::putText(display_frame, info.str(), cv::Point(10, 30),
                 cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 255, 0), 2);
             cv::imshow("Server Preview", display_frame);
@@ -229,15 +242,17 @@ bool run_udp_video_demo(bool preview) {
         // Compress frame to JPEG
         cv::imencode(".jpg", frame, buffer, params);
 
-        if (buffer.size() > 65000) {
-            // If frame is too large, reduce quality
-            params[1] = std::max(20, params[1] - 5);
-            continue;
-        }
+        // If frame is too large, split into chunks
+        const size_t MAX_CHUNK_SIZE = 60000; // Leave room for headers
+        size_t total_size = buffer.size();
+        size_t offset = 0;
 
-        // Send JPEG data
-        sendto(sock, reinterpret_cast<char*>(buffer.data()), buffer.size(), 0,
-            reinterpret_cast<sockaddr*>(&clientAddr), sizeof(clientAddr));
+        while (offset < total_size) {
+            size_t chunk_size = std::min(MAX_CHUNK_SIZE, total_size - offset);
+            sendto(sock, reinterpret_cast<char*>(buffer.data() + offset), static_cast<int>(chunk_size), 0,
+                reinterpret_cast<sockaddr*>(&clientAddr), sizeof(clientAddr));
+            offset += chunk_size;
+        }
 
         // Check for ESC key
         char c = preview ? cv::waitKey(1) : 0;
@@ -248,13 +263,14 @@ bool run_udp_video_demo(bool preview) {
                 running = false;
         }
 
-        // Calculate processing time and adjust delay
+        // Calculate processing time and add minimal delay if needed
         auto end = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
         
-        // Aim for ~33ms per frame (30 FPS)
-        if (duration < 33) {
-            Sleep(33 - duration);
+        // Aim for the actual FPS rate
+        double frame_time = 1000.0 / actualFPS;
+        if (duration < frame_time) {
+            Sleep(1); // Minimal sleep to prevent CPU overuse
         }
     }
 

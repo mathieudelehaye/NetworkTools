@@ -11,12 +11,13 @@
 
 - TCP socket communication
 - UDP socket communication
-- UDP transmission of a webcam stream between server and client using OpenCV
+- UDP transmission of a webcam stream between server and client using OpenCV (frames are now split into chunks for easier UDP transfer, supporting up to 1080p resolution)
 
 ## TODO Features
 
 The following features are planned but not yet implemented:
 
+- Increase client-side framerate (currently below 30 FPS)
 - Packet encoding/decoding utilities
 - Byte-level parsing and serialization
 - Example apps: basic protocol parser

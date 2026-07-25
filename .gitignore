@@ -17,6 +17,8 @@
 *.so
 *.dylib
 
+*.code-workspace
+
 project_structure*
 
 .vs/

@@ -1,7 +1,7 @@
 # NetworkTools
 
 <p align="left">
-  <img src="screenshots/Screenshot-01.png" alt="NetworkTools Screenshot" width="60%" />
+  <img src="screenshots/Screenshot-01.png" alt="NetworkTools Screenshot" width="90%" />
 </p>
 
 **NetworkTools** is a real-time WebRTC background-blur application. A browser captures the webcam via `getUserMedia`, a Python/Streamlit backend runs MediaPipe person segmentation and forwards each frame into a native C++/OpenCV engine (bound with pybind11) that blurs the background and composites the result, and the processed stream is sent back to the browser and, optionally, relayed to an upstream WebRTC MCU.

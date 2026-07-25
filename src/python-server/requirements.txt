@@ -1,0 +1,18 @@
+# Python 3.10-3.12. MediaPipe has no wheels for 3.13 yet.
+
+# Build-time only. pybind11 is deliberately sourced from pip rather than vcpkg:
+# the vcpkg port depends on the python3 port, which compiles a whole CPython
+# (plus openssl, sqlite3, libffi, libb2...) that this project never uses.
+pybind11>=2.12
+
+streamlit>=1.36
+streamlit-webrtc>=0.47.1
+aiortc>=1.9.0
+aiohttp>=3.9            # MCU signalling only
+av>=12.0
+mediapipe>=0.10.14
+numpy>=1.26,<2.1        # mediapipe still trails on the numpy 2.x ABI
+
+# Note: opencv-python is deliberately absent. All OpenCV work happens inside
+# cpp_video_engine, which statically links its own copy from vcpkg. Installing
+# the pip wheel as well just loads a second OpenCV into the process.

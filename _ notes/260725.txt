@@ -7,21 +7,10 @@ git push origin --tags
 
 
 
+git clone https://github.com/microsoft/vcpkg.git ~/vcpkg
+~/vcpkg/bootstrap-vcpkg.sh
 
 
-
-
-
-
-
-
-# wrk 
-
-wsl -d Ubuntu-260525 --user mdelehaye   # ask 2 lg VM use gv usr  
-
-# WSL: 
-
-cd /home/mdelehaye/cpp/NetworkTools
 
 env="/home/mdelehaye/aiml-dat/qmul-msc-dissertation/.venv" 
 uv venv $env --python python3.11 --allow-existing # avoi ask 2 rpac xist .venv eah tme 
@@ -69,4 +58,48 @@ bid = 111290 (0.64831000 BTC), 657291451: bst ask = 111291 (7.39127000 BTC) bst
 bid = 111290 (0.64831000 BTC) => hi sl psr, mp went dn => IoC fail.
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+# wrk 
+
+wsl -d Ubuntu-260525 --user mdelehaye   # ask 2 lg VM use gv usr  
+
+# WSL: 
+
+cd /home/mdelehaye/cpp/NetworkTools
+
+sudo chown -R mdelehaye:mdelehaye /home/mdelehaye/cpp/NetworkTools/src/
+
+# py 
+
+cd /home/mdelehaye/cpp/NetworkTools/src/python-server
+
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+
+
 deactivate
+
+# cpp
+
+cd /home/mdelehaye/cpp/NetworkTools/src/cpp-lib
+
+cmake -S . -B build -G Ninja \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DPython3_EXECUTABLE=$(which python)
+
+cmake --build build -j$(nproc)
+

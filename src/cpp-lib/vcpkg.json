@@ -1,0 +1,18 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "cpp-video-engine",
+  "version": "0.1.0",
+  "description": "Native OpenCV background-blur engine exposed to Python via pybind11.",
+  "dependencies": [
+    {
+      "name": "opencv4",
+      "default-features": false,
+      "features": [
+        "intrinsics",
+        "thread",
+        "jpeg",
+        "png"
+      ]
+    }
+  ]
+}

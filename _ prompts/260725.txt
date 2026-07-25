@@ -1,0 +1,70 @@
+SYSTEM ROLE:
+You are a Principal C++ / Python Systems Engineer specializing in high-throughput, low-latency video streaming pipelines under Linux/WSL2.
+
+TASK OVERVIEW:
+I am uploading my raw C++ source files (containing custom TCP/UDP client and server logic using OpenCV). I want you to transform these separate components into a unified, high-performance C++ shared library built with pybind11 and managed via vcpkg Manifest Mode.
+
+You will then build a Streamlit application that consumes this custom C++ library to perform real-time video processing (background segmentation and blurring via MediaPipe and OpenCV), providing a local Chrome browser loopback while remaining fully compatible with an upstream WebRTC MCU server (whether the MCU server is currently online or offline).
+
+DIRECTORY & FOLDER LAYOUT REQUIREMENTS:
+The project must strictly separate the C++ native build system from the Python server logic:
+- C++ Subdirectory (Build & Manifest): `/home/mdelehaye/cpp/NetworkTools/src/cpp-lib/`
+- Python Subdirectory (Server & UI App): `/home/mdelehaye/cpp/NetworkTools/src/python-server/`
+
+ENVIRONMENT CONSTRAINTS:
+- Operating System: Linux / WSL2 (Ubuntu)
+- C++ Standard: C++17 or C++20
+- Dependency & Package Manager: vcpkg in Manifest Mode (`vcpkg.json`) inside the `cpp-lib` directory
+- Build System: CMake (minimum version 3.15) inside the `cpp-lib` directory
+- Python Binding Framework: pybind11
+- WebRTC Stack: aiortc / streamlit-webrtc
+
+---
+
+### ARCHITECTURAL & DEPENDENCY REQUIREMENTS:
+
+1. DEPENDENCY MANAGEMENT VIA VCPKG MANIFEST MODE
+   - Create a `vcpkg.json` manifest file at `/home/mdelehaye/cpp/NetworkTools/src/cpp-lib/vcpkg.json`.
+   - Include dependencies for `pybind11` and `opencv4` (configured with `default-features: false` and minimal features like `imgproc`, `png`, `jpeg` to avoid bloated GUI builds).
+
+2. CMAKE BUILD CONFIGURATION FOR WSL2 (`cpp-lib`)
+   - Provide a `CMakeLists.txt` at `/home/mdelehaye/cpp/NetworkTools/src/cpp-lib/CMakeLists.txt`.
+   - Set `CMAKE_TOOLCHAIN_FILE` at the very top to point to `$ENV{HOME}/vcpkg/scripts/buildsystems/vcpkg.cmake` so CMake automatically triggers vcpkg in Manifest Mode to download, compile, and link dependencies during configuration.
+   - Use standard `find_package(OpenCV REQUIRED)` and `find_package(pybind11 CONFIG REQUIRED)`.
+   - Configure the build output directory (`LIBRARY_OUTPUT_PATH` / `CMAKE_LIBRARY_OUTPUT_DIRECTORY`) so the compiled `cpp_video_engine.so` binary is placed directly into `/home/mdelehaye/cpp/NetworkTools/src/python-server/` for seamless Python importing.
+
+3. REFACTORING & CONSOLIDATING MY C++ FILES
+   - Inspect my attached source files (main.cpp, tcp_server, udp_server, etc.).
+   - Strip out custom raw TCP/UDP socket network handling, custom chunking, and cv::imshow() calls.
+   - Extract only the performance-critical OpenCV image processing logic and consolidate it into a clean C++ class: `VideoProcessor`.
+   - Wrap `VideoProcessor` using pybind11 to allow zero-copy memory access (`py::array_t<uint8_t>`) between Python NumPy buffers and C++ `cv::Mat`.
+
+4. STREAMLIT + WEBRTC PIPELINE (`python-server`)
+   - Build an `app.py` Streamlit application inside `/home/mdelehaye/cpp/NetworkTools/src/python-server/app.py`.
+   - Import the compiled `cpp_video_engine` module.
+   - Frame Processing Pipeline inside the WebRTC video callback:
+     a. Convert incoming `av.VideoFrame` to a NumPy array (BGR/RGB).
+     b. Pass the array to MediaPipe (Selfie Segmentation) to generate a person mask.
+     c. Pass the array and mask to our compiled C++ `cpp_video_engine` library to execute Gaussian Blur and alpha blending in native code.
+     d. Wrap the processed array back into an `av.VideoFrame`.
+   - Loopback: Return the blurred frame immediately back to Chrome so I can view my processed feed in real time.
+
+5. MCU SERVER COMPATIBILITY (OPTIONAL ENDPOINT / DUAL HOP)
+   - Ensure the architecture decoupledly supports an optional secondary WebRTC PeerConnection targeting an MCU server IP/port.
+   - Implement an async non-blocking mechanism: If the MCU server is reachable, forward the exact same blurred `av.VideoFrame` to the MCU track; if unreachable, catch the connection error gracefully without freezing the local Chrome loopback display.
+
+---
+
+### OUTPUT EXPECTATIONS:
+
+Please organize the output clearly based on the specified directory structure:
+
+📁 `/home/mdelehaye/cpp/NetworkTools/src/cpp-lib/`
+  1. `vcpkg.json`
+  2. `CMakeLists.txt`
+  3. `native_engine.cpp`
+
+📁 `/home/mdelehaye/cpp/NetworkTools/src/python-server/`
+  4. `app.py`
+
+5. Step-by-step terminal commands for WSL2 (building the C++ library in `cpp-lib/build/` and executing `streamlit run app.py` from `python-server/`).

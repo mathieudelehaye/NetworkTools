@@ -1,28 +1,6 @@
 // ===========================================================================
 //  cpp_video_engine — native background-blur / alpha-compositing engine
 // ===========================================================================
-//
-//  Extracted from the original NetworkTools client/server sources.
-//
-//  DELIBERATELY REMOVED (all of this now lives above us, in aiortc/WebRTC):
-//    * raw socket setup (socket/bind/sendto/recvfrom), Winsock init/teardown
-//    * the 58 KB application-layer chunker and its 12-byte
-//      {frame_id, chunk_id, total_chunks} header
-//    * client-side reassembly buffers and out-of-order/loss handling
-//    * cv::imencode / cv::imdecode JPEG round-trip (WebRTC does VP8/H264)
-//    * cv::imshow / cv::waitKey display loop
-//    * cv::VideoCapture / DirectShow capture (getUserMedia does this now)
-//
-//  WHAT SURVIVES: the per-frame pixel maths, which is the only part that
-//  actually needs to be native.
-//
-//  ZERO-COPY CONTRACT
-//    Input NumPy buffers are wrapped by cv::Mat headers pointing at the
-//    original memory — nothing is copied on the way in. `process()` performs
-//    exactly one allocation (the output array, owned by NumPy). Use
-//    `process_into()` to reuse a caller-owned output buffer and allocate
-//    nothing at all per frame.
-// ===========================================================================
 
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>

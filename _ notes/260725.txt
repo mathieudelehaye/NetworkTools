@@ -62,6 +62,77 @@ bid = 111290 (0.64831000 BTC) => hi sl psr, mp went dn => IoC fail.
 
 
 
+cd /home/mdelehaye/cpp/NetworkTools/src/python-server
+
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Install GVM locally to ~/.gvm
+bash < <(curl -s -S -L https://raw.githubusercontent.com/moovweb/gvm/master/binscripts/gvm-installer)
+source ~/.gvm/scripts/gvm
+
+# Install and set Go locally
+gvm install go1.24.0 -B
+gvm use go1.24.0 --default
+
+go --version
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+rm src/python-server/cpp_video_engine.cpython-3 # press tab 
+
+
+
+
+# WSL2 
+hostname -I | awk '{print $1}'  # `172.26.176.167`
+# Open PowerShell as Administrator on Windows
+netsh interface portproxy add v4tov4 listenport=8080 listenaddress=0.0.0.0 connectport=8080 connectaddress=172.26.176.167
+New-NetFirewallRule -DisplayName "WSL WHEP Stream" -Direction Inbound -LocalPort 8080 -Protocol TCP -Action Allow # Allow port 8080 through the Windows Firewall
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -77,25 +148,33 @@ wsl -d Ubuntu-260525 --user mdelehaye   # ask 2 lg VM use gv usr
 
 # WSL: 
 
-cd /home/mdelehaye/cpp/NetworkTools
-
-sudo chown -R mdelehaye:mdelehaye /home/mdelehaye/cpp/NetworkTools/src/
-
 # py 
 
-cd /home/mdelehaye/cpp/NetworkTools/src/python-server
+project_root="/home/mdelehaye/cpp/NetworkTools"; echo "${project_root}"
+cd "${project_root}"
 
-python3 -m venv .venv
-source .venv/bin/activate
-pip install --upgrade pip
-pip install -r requirements.txt
+code_subdir="src"
+python_code_subdir="${code_subdir}/python-server"; ll "${project_root}/${python_code_subdir}"
+env="${project_root}/${python_code_subdir}/.venv"; ll "${env}"
+uv venv $env --python python3.12 --allow-existing # avoi ask 2 rpac xist .venv eah tme 
+source "$env/bin/activate"
+python --version && which python 
+requirements_file_path="${python_code_subdir}/requirements.txt"; cat "${requirements_file_path}"
+uv pip install -r "${requirements_file_path}"
 
+sudo chown -R mdelehaye:mdelehaye "${project_root}/${code_subdir}"
 
-deactivate
+ls -la src/python-server/*.so && python --version   # chk that dylib ver is crc, eg `cpp_video_engine.cpython-*311*-x86_64-linux-gnu.so` & `Python *3.11*.15`
 
-# cpp
+PYTHONPATH="$PWD/src/python-server" streamlit run "${python_code_subdir}"/app.py  --server.headless true
+
+# in GUI rpac MCU URL / `http://127.0.0.1:8080/whip`, s `handshake=whip`, & rsrt svr ntil crc adr aper in RHS panel 
+
+# cpp: ! RUN IT IN THE SAME PY ENV AS SERVER; IF PY VER CHANGE, REBUILD THE DYLIB.
 
 cd /home/mdelehaye/cpp/NetworkTools/src/cpp-lib
+
+rm -rf build
 
 cmake -S . -B build -G Ninja \
       -DCMAKE_BUILD_TYPE=Release \
@@ -103,3 +182,12 @@ cmake -S . -B build -G Ninja \
 
 cmake --build build -j$(nproc)
 
+# chk MCU strm 
+python "${python_code_subdir}"/test/test_mcu_stream.py
+
+
+deactivate
+
+# mcu svr 
+cd /home/mdelehaye/cpp/webrtc/examples/whip-whep
+go run *.go

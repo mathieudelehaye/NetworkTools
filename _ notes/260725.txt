@@ -135,6 +135,8 @@ New-NetFirewallRule -DisplayName "WSL WHEP Stream" -Direction Inbound -LocalPort
 
 
 
+print(f"rgb.shape={rgb.shape}")
+
 
 
 
@@ -169,6 +171,10 @@ ls -la src/python-server/*.so && python --version   # chk that dylib ver is crc,
 PYTHONPATH="$PWD/src/python-server" streamlit run "${python_code_subdir}"/app.py  --server.headless true
 
 # in GUI rpac MCU URL / `http://127.0.0.1:8080/whip`, s `handshake=whip`, & rsrt svr ntil crc adr aper in RHS panel 
+
+# chk npu webRTC vid qal: go2 chrome://webrtc-internals 
+# chk `inbound-rtp` > `frameWidth`/`frameHeight`
+# chk `outbound-rtp` > `qualityLimitationReason`
 
 # cpp: ! RUN IT IN THE SAME PY ENV AS SERVER; IF PY VER CHANGE, REBUILD THE DYLIB.
 

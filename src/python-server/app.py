@@ -70,6 +70,24 @@ except ImportError as exc:  # pragma: no cover
     )
     st.stop()
 
+# Monkey-patch aiortc's RemoteBitrateEstimator to enforce a minimum bandwidth floor.
+# Prevents WebRTC (GCC) from aggressively downscaling resolution or encoding quality 
+# under perceived local CPU/network pressure by overriding the estimated bitrate.
+import aiortc.rtcrtpreceiver as rr
+from aiortc.rate import RemoteBitrateEstimator
+
+FLOOR = 8_000_000
+
+class GenerousEstimator(RemoteBitrateEstimator):
+    def add(self, *args, **kwargs):
+        result = super().add(*args, **kwargs)
+        if result is None:
+            return None
+        _, ssrcs = result
+        return (FLOOR, ssrcs)
+
+rr.RemoteBitrateEstimator = GenerousEstimator
+
 from streamlit_webrtc import VideoProcessorBase, WebRtcMode, webrtc_streamer  # noqa: E402
 
 # MediaPipe's legacy `mp.solutions.*` API was removed after 0.10.21; on 0.10.30+
@@ -571,9 +589,9 @@ with st.sidebar:
     st.header("Upstream MCU")
     mcu_enabled = st.checkbox("Forward to MCU", value=False)
     mcu_url = st.text_input("Signaling endpoint",
-                            value="http://127.0.0.1:8080/offer",
+                            value="http://127.0.0.1:8080/whip",
                             disabled=not mcu_enabled)
-    mcu_signaling = st.radio("Handshake", ["json", "whip"], horizontal=True,
+    mcu_signaling = st.radio("Handshake", ["json", "whip"], index=1, horizontal=True,
                              disabled=not mcu_enabled)
 
 RTC_CONFIG = {"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}

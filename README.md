@@ -1,7 +1,18 @@
 # NetworkTools
 
 <p align="left">
-  <img src="screenshots/Screenshot-01.png" alt="NetworkTools Screenshot" width="90%" />
+  <img src="screenshots/Screenshot-01.png" alt="Streamlit UI — background blur active, MCU connected" width="90%" />
+  <br/><sub>Streamlit UI: background blur active (kernel 55, scale 0.50 · mask threshold 0.25 · edge feather 20), OpenCV 4.12.0, ~28.9 fps on CPU, MCU connected</sub>
+</p>
+
+<p align="left">
+  <img src="screenshots/Screenshot-02.png" alt="MCU subscriber page — raw upstream WebRTC stream" width="60%" />
+  <br/><sub>MCU subscriber page: raw upstream WebRTC stream received from the Streamlit backend, ICE connection established</sub>
+</p>
+
+<p align="left">
+  <img src="screenshots/Screenshot-03.png" alt="Streamlit UI — alternative configuration" width="90%" />
+  <br/><sub>Streamlit UI: additional configuration / state view</sub>
 </p>
 
 **NetworkTools** is a real-time WebRTC background-blur application. A browser captures the webcam via `getUserMedia`, a Python/Streamlit backend runs MediaPipe person segmentation and forwards each frame into a native C++/OpenCV engine (bound with pybind11) that blurs the background and composites the result, and the processed stream is sent back to the browser and, optionally, relayed to an upstream WebRTC MCU.
@@ -30,7 +41,7 @@ av.VideoFrame  ──► back to Chrome (loopback, always)
                 └─► optional second hop to an upstream WebRTC MCU (MCUForwarder)
 ```
 
-Everything downstream of the browser runs inside a single WebRTC worker thread per stream; the native engine and the segmenter are the only per-frame costs that matter (roughly 6–7 ms and 6–15 ms respectively on CPU for a 720p frame).
+Everything downstream of the browser runs inside a single WebRTC worker thread per stream; the native engine and the segmenter are the only per-frame costs that matter (roughly 6–7 ms and 6–15 ms respectively on CPU for a 720p frame). Capture resolution up to 1920×1080 is supported and reachable via the sidebar control.
 
 ## Components
 
@@ -49,6 +60,7 @@ Everything downstream of the browser runs inside a single WebRTC worker thread p
   - A preflight check (`check_mediapipe_runtime`) loads MediaPipe's native library at startup so a missing system OpenGL/EGL dependency surfaces as a clear Streamlit error instead of a raw `OSError` from inside a worker thread.
   - Sidebar controls: blur kernel size and working scale, mask threshold/feather/hard-cutoff/invert, GPU-delegate toggle, capture resolution, bypass (A/B) toggle, HUD toggle, and MCU forwarding target.
 - `smoke_test.py`: exercises the native engine in isolation (no browser/WebRTC involved) — verifies mask polarity, background blurring, the zero-allocation (`process_into`) and in-place (`process_inplace`) paths agree with the default `process()`, the HUD overlay, and prints a 720p per-frame timing benchmark.
+- `test/test_mcu_stream.py`: end-to-end MCU streaming test — pushes a processed stream to a local WHIP/WHEP server (e.g. [pion/webrtc](https://github.com/pion/webrtc), a pure-Go WebRTC stack used here as a lightweight MCU for development) and verifies the relay path independently of the Streamlit UI.
 - `requirements.txt`: Python dependencies — `pybind11` (build-time only, for the native module), `streamlit` + `streamlit-webrtc` + `aiortc` + `av` (WebRTC), `aiohttp` (MCU signalling), `mediapipe`, `numpy` (pinned `<2.1` for MediaPipe's ABI). `opencv-python` is deliberately absent: all OpenCV work happens inside `cpp_video_engine`, which statically links its own copy.
 - `models/`: holds `selfie_segmenter.tflite`, downloaded automatically on first run (falls back to a manual `curl` command shown in the UI if the model host is unreachable).
 

@@ -6,7 +6,7 @@
 </p>
 
 <p align="left">
-  <img src="screenshots/Screenshot-02.png" alt="MCU subscriber page — raw upstream WebRTC stream" width="60%" />
+  <img src="screenshots/Screenshot-02.png" alt="MCU subscriber page — raw upstream WebRTC stream" width="80%" />
   <br/><sub>MCU subscriber page: raw upstream WebRTC stream received from the Streamlit backend, ICE connection established</sub>
 </p>
 
